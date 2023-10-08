@@ -82,7 +82,9 @@ def sign_up(credentials: UserCredentials):
         dict: A dictionary containing a success message.
 
     Raises:
-        HTTPException: If the user already exists in the database or if the user credentials are invalid.
+        HTTPException:
+            If the user already exists in the database or
+            if the user credentials are invalid.
     """
     with session:
         try:

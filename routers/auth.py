@@ -58,7 +58,9 @@ def create_session(user_id: int, is_owner: bool = False):
 
     Args:
         user_id (int): The ID of the user for whom the session is being created.
-        is_owner (bool, optional): Whether the user is the owner of the session. Defaults to False.
+        is_owner (bool, optional):
+            Whether the user is the owner of the session.
+            Defaults to False.
 
     Returns:
         str: The session ID of the newly created session.
@@ -127,16 +129,21 @@ def get_authenticated_user(request: Request) -> User:
 
 def get_user_from_session(user_session: UserSession):
     """
-    Given a UserSession object, returns the corresponding User or Owner object from the database.
+    Given a UserSession object,
+    returns the corresponding User or Owner object from the database.
 
     Args:
-        user_session (UserSession): The UserSession object containing the user_id and is_owner flag.
+        user_session (UserSession):
+            The UserSession object containing the user_id and is_owner flag.
 
     Returns:
-        User or Owner: The User or Owner object corresponding to the user_id in the UserSession.
+        User or Owner:
+            The User or Owner object corresponding to the user_id in the UserSession.
 
     Raises:
-        HTTPException: If the user_id in the UserSession is invalid or does not correspond to a User or Owner object.
+        HTTPException:
+            If the user_id in the UserSession is invalid or
+            does not correspond to a User or Owner object.
     """
     with session:
         Entity = Owner if user_session.is_owner else User
@@ -154,7 +161,8 @@ def get_user_from_session(user_session: UserSession):
 
 def is_already_logged_in(request: Request) -> bool:
     """
-    Check if the user is already logged in by checking if the session_id cookie exists and is valid.
+    Check if the user is already logged in
+    by checking if the session_id cookie exists and is valid.
 
     Args:
         request (Request): The incoming request object.
@@ -177,7 +185,8 @@ def is_already_logged_in(request: Request) -> bool:
 
 def get_admin_user(request: Request) -> User:
     """
-    Returns the authenticated user if they are an admin user, otherwise raises a 403 Forbidden error.
+    Returns the authenticated user if they are an admin user,
+    otherwise raises a 403 Forbidden error.
 
     Args:
         request (Request): The request object.
@@ -198,11 +207,15 @@ def get_admin_user(request: Request) -> User:
 
 def logout(response: Response, session_id: str = Depends(get_session_id)):
     """
-    Logs out the user by deleting the user session from the database and deleting the session_id cookie from the response.
+    Logs out the user by deleting the user session from the database and
+    deleting the session_id cookie from the response.
 
     Args:
-        response (Response): The response object to delete the session_id cookie from.
-        session_id (str, optional): The session ID to use for logging out. Defaults to Depends(get_session_id).
+        response (Response):
+            The response object to delete the session_id cookie from.
+        session_id (str, optional):
+            The session ID to use for logging out.
+            Defaults to Depends(get_session_id).
 
     Raises:
         HTTPException: If the session ID is invalid.

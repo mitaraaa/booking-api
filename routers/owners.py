@@ -104,7 +104,7 @@ def update_profile(
     with session:
         for key, value in dict(vars(credentials).items()):
             if value:
-                if key is "password":
+                if key == "password":
                     value = Owner.hash_password(value)
                 setattr(owner, key, value)
 
