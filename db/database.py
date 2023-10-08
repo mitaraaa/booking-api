@@ -1,6 +1,11 @@
 import os
-from sqlmodel import SQLModel, create_engine, Session
+
+from dotenv import load_dotenv
+from sqlmodel import Session, SQLModel, create_engine
+
 from .models import *  # noqa
+
+load_dotenv()
 
 database_url = os.environ.get("POSTGRESQL_URL")
 engine = create_engine(database_url)
