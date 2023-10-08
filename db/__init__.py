@@ -1,4 +1,4 @@
-from .database import session
+from .database import engine, session
 from .models import Booking, FootballField, Owner, User, UserSession
 
 __all__ = [
@@ -8,4 +8,5 @@ __all__ = [
     "User",
     "session",
     "UserSession",
+    "engine",
 ]
