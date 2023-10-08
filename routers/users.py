@@ -1,119 +1,94 @@
-import os
-import uuid
-
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-    Request,
-    Response,
-    status,
-)
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
-from db import User, UserSession, session
+from db import User, session
+from routers.auth import (
+    authenticate_user,
+    create_session,
+    get_admin_user,
+    get_authenticated_user,
+    is_already_logged_in,
+    logout,
+)
 
 router = APIRouter(prefix="/users")
 
 
 class UserCredentials(BaseModel):
-    username: str
+    """
+    Represents the credentials of a user.
+
+    Attributes:
+        username (str): The username of the user.
+        name (str, optional): The name of the user.
+        password (str): The password of the user.
+    """
+
+    username: str | None
     name: str | None
-    password: str
+    password: str | None
 
 
-def authenticate_user(credentials: UserCredentials) -> User:
-    with session:
-        stmt = select(User).where(User.username == credentials.username)
-        user: User = session.scalar(stmt)
+@router.get("/", dependencies=[Depends(get_admin_user)])
+def get_users():
+    """
+    Retrieve all users.
 
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                headers={"WWW-Authenticate": "Basic"},
-                detail="User not found",
-            )
-
-        if not user.verify_password(credentials.password):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                headers={"WWW-Authenticate": "Basic"},
-            )
-
-        return user
-
-
-def create_session(user_id: int):
-    with session:
-        user_session = UserSession(
-            user_id=user_id, session_id=str(uuid.uuid4())
-        )
-        session.add(user_session)
-        session.commit()
-        session.refresh(user_session)
-
-        return user_session.session_id
-
-
-def get_session_id(request: Request):
-    session_id = request.cookies.get("session_id")
-    if session_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Empty session_id",
-        )
-
-    return session_id
-
-
-def get_authenticated_user(request: Request):
-    session_id = get_session_id(request)
-
-    with session:
-        stmt = select(UserSession).where(UserSession.session_id == session_id)
-        user_session = session.scalar(stmt)
-        if not user_session:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid session_id",
-            )
-
-        user = get_user_from_session(user_session)
-        return user
-
-
-def get_user_from_session(user_session: UserSession):
-    with session:
-        stmt = select(User).where(User.id == user_session.user_id)
-        user = session.scalar(stmt)
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid session_id",
-            )
-
-        return user
-
-
-@router.get("/")
-def get_users(user: User = Depends(get_authenticated_user)):
-    if user.username not in os.environ["ADMINS"].split("|"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
-
+    Returns:
+        List[dict]: A list of dictionaries containing user information.
+    """
     with session:
         stmt = select(User)
         return [x.json() for x in session.scalars(stmt)]
 
 
+@router.get(
+    "/{user_id}",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(get_admin_user)],
+)
+def get_user(user_id: int):
+    """
+    Retrieve a user by ID.
+
+    Args:
+        user_id (int): The ID of the user.
+
+    Returns:
+        dict: A dictionary containing user information.
+    """
+    with session:
+        stmt = select(User).where(User.id == user_id)
+        user = session.scalar(stmt)
+
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+        return user.json()
+
+
 @router.post("/signup", status_code=status.HTTP_201_CREATED)
-def sign_up(data: UserCredentials):
+def sign_up(credentials: UserCredentials):
+    """
+    Creates a new user in the database.
+
+    Args:
+        data (UserCredentials): The user credentials.
+
+    Returns:
+        dict: A dictionary containing a success message.
+
+    Raises:
+        HTTPException: If the user already exists in the database or if the user credentials are invalid.
+    """
     with session:
         try:
-            user = User(**(dict(vars(data).items())))
-            user.hash_password(data.password)
+            credentials.password = User.hash_password(credentials.password)
+            user = User(**(dict(vars(credentials).items())))
+            user.hash_password(credentials.password)
             session.add(user)
             session.commit()
 
@@ -126,48 +101,80 @@ def sign_up(data: UserCredentials):
 
 @router.post("/login", status_code=status.HTTP_200_OK)
 def login(request: Request, user: User = Depends(authenticate_user)):
-    if request.cookies.get("session_id"):
-        with session:
-            stmt = select(UserSession).where(
-                UserSession.session_id == request.cookies.get("session_id")
-            )
-            user_session = session.scalar(stmt)
-            if user_session:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="User already logged in",
-                )
+    """
+    Logs in a user and creates a session for them.
+
+    Args:
+        request (Request): The incoming request.
+        user (User): The authenticated user.
+
+    Returns:
+        JSONResponse: A JSON response containing a message and session ID cookie.
+    """
+    if is_already_logged_in(request):
+        return JSONResponse(
+            content={"message": "User already logged in"},
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
 
     session_id = create_session(user.id)
-
-    content = {
-        "message": "User logged in successfully",
-        "session_id": session_id,
-    }
-    response = JSONResponse(content=content)
+    response = JSONResponse(
+        content={
+            "message": "User logged in successfully",
+            "session_id": session_id,
+        }
+    )
     response.set_cookie(key="session_id", value=session_id)
 
     return response
 
 
-@router.post("/logout", status_code=status.HTTP_200_OK)
-def logout(response: Response, session_id: str = Depends(get_session_id)):
-    with session:
-        stmt = select(UserSession).where(UserSession.session_id == session_id)
-        user_session = session.scalar(stmt)
-        if not user_session:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid session_id",
-            )
-        session.delete(user_session)
-        session.commit()
-
-        response.delete_cookie(key="session_id")
-
-        return {"message": "User logged out successfully"}
-
-
 @router.get("/profile", status_code=status.HTTP_200_OK)
 def get_profile(user: User = Depends(get_authenticated_user)):
-    return user
+    """
+    Returns the JSON representation of the authenticated user's profile.
+
+    Args:
+        user (User): The authenticated user.
+
+    Returns:
+        dict: The JSON representation of the authenticated user's profile.
+    """
+    return user.json()
+
+
+@router.put(
+    "/profile",
+    status_code=status.HTTP_200_OK,
+)
+def update_profile(
+    data: UserCredentials, user: User = Depends(get_authenticated_user)
+):
+    """
+    Updates the authenticated user's profile.
+
+    Args:
+        data (UserCredentials): The user credentials.
+
+    Returns:
+        dict: A dictionary containing a success message.
+    """
+    with session:
+        if data.name:
+            user.name = data.name
+
+        if data.password:
+            user.password = User.hash_password(data.password)
+
+        session.add(user)
+        session.commit()
+
+        return {"message": "User updated successfully", "user": user.json()}
+
+
+router.add_api_route(
+    path="/logout",
+    endpoint=logout,
+    methods=["POST"],
+    status_code=status.HTTP_200_OK,
+)

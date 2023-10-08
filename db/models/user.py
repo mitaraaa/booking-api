@@ -11,10 +11,9 @@ class User(SQLModel, table=True):
     name: str
     password: str
 
-    def hash_password(self, password: str):
-        self.password = bcrypt.hashpw(
-            password.encode(), bcrypt.gensalt()
-        ).decode()
+    @staticmethod
+    def hash_password(password: str) -> str:
+        return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
     def verify_password(self, password: str) -> bool:
         return bcrypt.checkpw(password.encode(), self.password.encode())
