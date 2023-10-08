@@ -1,25 +1,14 @@
 from typing import Optional
 
-import bcrypt
-from sqlmodel import Field, SQLModel
+from db.models.user import User
 
 
-class Owner(SQLModel, table=True):
+class Owner(User, table=True):
     __tablename__ = "owners"
-
-    id: int = Field(primary_key=True)
-
-    username: str = Field(unique=True, nullable=False)
-    name: str
-    password: str
 
     email: Optional[str]
     phone_number: Optional[str]
     instagram: Optional[str]
-
-    def verify_password(self, password: str) -> bool:
-        pwhash = bcrypt.hashpw(password, self.password)
-        return self.password == pwhash
 
     def json(self) -> dict:
         return {
