@@ -11,6 +11,23 @@ class User(SQLModel, table=True):
     name: str
     password: str
 
+    def hash_password(self, password: str):
+        self.password = bcrypt.hashpw(
+            password.encode(), bcrypt.gensalt()
+        ).decode()
+
     def verify_password(self, password: str) -> bool:
-        pwhash = bcrypt.hashpw(password, self.password)
-        return self.password == pwhash
+        return bcrypt.checkpw(password.encode(), self.password.encode())
+
+    def json(self) -> dict:
+        return self.__repr__()
+
+    def __str__(self) -> str:
+        return super().__str__()
+
+    def __repr__(self):
+        return {
+            "id": self.id,
+            "username": self.username,
+            "name": self.name,
+        }
