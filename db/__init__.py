@@ -1,4 +1,11 @@
-from .models import Booking, FootballField, Owner, User
 from .database import session
+from .models import Booking, FootballField, Owner, User, UserSession
 
-__all__ = ["Booking", "FootballField", "Owner", "User", "session"]
+__all__ = [
+    "Booking",
+    "FootballField",
+    "Owner",
+    "User",
+    "session",
+    "UserSession",
+]
