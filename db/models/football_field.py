@@ -1,7 +1,9 @@
-from datetime import datetime
+from datetime import time
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
+
+Meters = float
 
 
 class FootballField(SQLModel, table=True):
@@ -14,8 +16,11 @@ class FootballField(SQLModel, table=True):
     location: str
     surface_type: Optional[str]
 
-    width: float
-    height: float
+    width: Meters
+    height: Meters
 
-    start_time: datetime
-    end_time: datetime
+    start_time: time
+    end_time: time
+
+    def json(self) -> dict:
+        return dict(vars(self).items())

@@ -1,9 +1,9 @@
 from typing import Optional
 
-from db.models.user import User
+from db.models.person import Person
 
 
-class Owner(User, table=True):
+class Owner(Person, table=True):
     __tablename__ = "owners"
 
     email: Optional[str]
