@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import SQLModel
 
-from db import User, engine, session
+from db import Owner, User, engine, session
 from main import app
 
 
@@ -21,7 +21,7 @@ def client() -> TestClient:
 
 
 @pytest.fixture()
-def admin_user():
+def dummy_admin():
     with session:
         admin_user = User(
             username="testadmin",
@@ -32,3 +32,17 @@ def admin_user():
         session.add(admin_user)
         session.commit()
         session.refresh(admin_user)
+
+
+@pytest.fixture()
+def dummy_owner():
+    with session:
+        owner_user = Owner(
+            username="testowner",
+            name="testOwner",
+            password=User.hash_password("testpass"),
+        )
+
+        session.add(owner_user)
+        session.commit()
+        session.refresh(owner_user)

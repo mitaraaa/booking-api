@@ -1,3 +1,3 @@
 import pytest  # noqa
 
-from tests.fixtures.client import admin_user, client  # noqa
+from tests.fixtures.client import client, dummy_admin, dummy_owner  # noqa

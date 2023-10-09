@@ -150,19 +150,8 @@ def test_logout_invalid_session_id(client: TestClient):
     assert response.status_code == 401
 
 
-@pytest.mark.usefixtures("client")
+@pytest.mark.usefixtures("client", "dummy_admin")
 def test_profile(client: TestClient):
-    response = client.post(
-        "/users/signup",
-        json={
-            "username": "testadmin",
-            "name": "testAdmin",
-            "password": "testpass",
-        },
-    )
-
-    assert response.status_code == 201
-
     response = client.post(
         "/users/login", json={"username": "testadmin", "password": "testpass"}
     )
@@ -170,7 +159,9 @@ def test_profile(client: TestClient):
     assert response.status_code == 200
     assert response.cookies["session_id"] is not None
 
-    response = client.get("/users/profile")
+    response = client.get("/users/profile", cookies=response.cookies)
+
+    print(response.json())
 
     assert response.status_code == 200
     assert response.json() == {
@@ -180,7 +171,7 @@ def test_profile(client: TestClient):
     }
 
 
-@pytest.mark.usefixtures("client", "admin_user")
+@pytest.mark.usefixtures("client", "dummy_admin")
 def test_get_users(client: TestClient):
     response = client.post(
         "/users/login", json={"username": "testadmin", "password": "testpass"}
@@ -198,7 +189,7 @@ def test_get_users(client: TestClient):
     ]
 
 
-@pytest.mark.usefixtures("client", "admin_user")
+@pytest.mark.usefixtures("client", "dummy_admin")
 def test_get_user(client: TestClient):
     response = client.post(
         "/users/signup",
