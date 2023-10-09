@@ -52,6 +52,10 @@ def authenticate_user(
         return user
 
 
+def authenticate_owner(credentials: Credentials) -> Owner:
+    return authenticate_user(credentials, is_owner=True)
+
+
 def create_session(user_id: int, is_owner: bool = False):
     """
     Creates a new user session and returns the session ID.
@@ -127,7 +131,16 @@ def get_authenticated_user(request: Request) -> User:
         return user
 
 
-def get_user_from_session(user_session: UserSession):
+def get_authenticated_owner(request: Request) -> Owner:
+    owner = get_authenticated_user(request)
+
+    if not isinstance(owner, Owner):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+
+    return owner
+
+
+def get_user_from_session(user_session: UserSession) -> User:
     """
     Given a UserSession object,
     returns the corresponding User or Owner object from the database.
@@ -199,7 +212,7 @@ def get_admin_user(request: Request) -> User:
     """
     user = get_authenticated_user(request)
 
-    if user.username not in os.environ["ADMINS"].split("|"):
+    if user.username not in os.environ["ADMINS"].split(","):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
 
     return user

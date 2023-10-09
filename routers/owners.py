@@ -8,10 +8,10 @@ from sqlmodel import select
 
 from db import Owner, session
 from routers.auth import (
-    authenticate_user,
+    authenticate_owner,
     create_session,
     get_admin_user,
-    get_authenticated_user,
+    get_authenticated_owner,
     is_already_logged_in,
     logout,
 )
@@ -27,6 +27,11 @@ class OwnerCredentials(BaseModel):
     email: Optional[str]
     phone_number: Optional[str]
     instagram: Optional[str]
+
+
+@router.get("/profile", status_code=status.HTTP_200_OK)
+def get_profile(owner: Owner = Depends(get_authenticated_owner)):
+    return owner.json()
 
 
 @router.get("/", dependencies=[Depends(get_admin_user)])
@@ -54,6 +59,8 @@ def create_owner(credentials: OwnerCredentials):
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY
             )
 
+        return {"message": "Owner created successfully"}
+
 
 @router.get(
     "/{owner_id}",
@@ -71,8 +78,25 @@ def get_owner(owner_id: int):
         return session.scalar(stmt)
 
 
+@router.delete(
+    "/{owner_id}",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(get_admin_user)],
+)
+def delete_owner(owner_id: int):
+    with session:
+        stmt = select(Owner).where(Owner.id == owner_id)
+        owner = session.scalar(stmt)
+
+        if not owner:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+        session.delete(owner)
+        session.commit()
+
+
 @router.post("/login", status_code=status.HTTP_200_OK)
-def login(request: Request, owner: Owner = Depends(authenticate_user)):
+def login(request: Request, owner: Owner = Depends(authenticate_owner)):
     if is_already_logged_in(request):
         return JSONResponse(
             content={"message": "User already logged in"},
@@ -91,18 +115,13 @@ def login(request: Request, owner: Owner = Depends(authenticate_user)):
     return response
 
 
-@router.get("/profile", status_code=status.HTTP_200_OK)
-def get_profile(owner: Owner = Depends(get_authenticated_user)):
-    return owner.json()
-
-
 @router.put("/profile", status_code=status.HTTP_200_OK)
 def update_profile(
     credentials: OwnerCredentials,
-    owner: Owner = Depends(get_authenticated_user),
+    owner: Owner = Depends(get_authenticated_owner),
 ):
     with session:
-        for key, value in dict(vars(credentials).items()):
+        for key, value in dict(vars(credentials).items()).items():
             if value:
                 if key == "password":
                     value = Owner.hash_password(value)

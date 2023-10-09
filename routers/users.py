@@ -32,6 +32,20 @@ class UserCredentials(BaseModel):
     password: str | None
 
 
+@router.get("/profile", status_code=status.HTTP_200_OK)
+def get_profile(user: User = Depends(get_authenticated_user)):
+    """
+    Returns the JSON representation of the authenticated user's profile.
+
+    Args:
+        user (User): The authenticated user.
+
+    Returns:
+        dict: The JSON representation of the authenticated user's profile.
+    """
+    return user.json()
+
+
 @router.get("/", dependencies=[Depends(get_admin_user)])
 def get_users():
     """
@@ -131,26 +145,12 @@ def login(request: Request, user: User = Depends(authenticate_user)):
     return response
 
 
-@router.get("/profile", status_code=status.HTTP_200_OK)
-def get_profile(user: User = Depends(get_authenticated_user)):
-    """
-    Returns the JSON representation of the authenticated user's profile.
-
-    Args:
-        user (User): The authenticated user.
-
-    Returns:
-        dict: The JSON representation of the authenticated user's profile.
-    """
-    return user.json()
-
-
 @router.put(
     "/profile",
     status_code=status.HTTP_200_OK,
 )
 def update_profile(
-    data: UserCredentials, user: User = Depends(get_authenticated_user)
+    credentials: UserCredentials, user: User = Depends(get_authenticated_user)
 ):
     """
     Updates the authenticated user's profile.
@@ -162,11 +162,11 @@ def update_profile(
         dict: A dictionary containing a success message.
     """
     with session:
-        if data.name:
-            user.name = data.name
-
-        if data.password:
-            user.password = User.hash_password(data.password)
+        for key, value in dict(vars(credentials).items()).items():
+            if value:
+                if key == "password":
+                    value = User.hash_password(value)
+                setattr(user, key, value)
 
         session.add(user)
         session.commit()
