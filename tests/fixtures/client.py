@@ -1,8 +1,10 @@
+from datetime import time
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import SQLModel
 
-from db import Owner, User, engine, session
+from db import FootballField, Owner, User, engine, session
 from main import app
 
 
@@ -46,3 +48,36 @@ def dummy_owner():
         session.add(owner_user)
         session.commit()
         session.refresh(owner_user)
+
+
+@pytest.fixture()
+def dummy_user():
+    with session:
+        user = User(
+            username="testuser",
+            name="testUser",
+            password=User.hash_password("testpass"),
+        )
+
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+
+
+@pytest.fixture()
+def dummy_field():
+    with session:
+        field = FootballField(
+            name="testField",
+            owner_id=1,
+            location="Astana",
+            surface_type="grass",
+            width=68,
+            length=105,
+            start_time=time(10, 0, 0),
+            end_time=time(22, 0, 0),
+        )
+
+        session.add(field)
+        session.commit()
+        session.refresh(field)

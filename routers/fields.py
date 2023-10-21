@@ -19,7 +19,7 @@ class FieldData(BaseModel):
     surface_type: str | None
 
     width: float | None
-    height: float | None
+    length: float | None
 
     start_time: time | None
     end_time: time | None
@@ -90,12 +90,20 @@ def update_field(
         session.add(field)
         session.commit()
 
+        return {"message": "Field updated successfully"}
+
 
 @router.get("/{field_id}", status_code=status.HTTP_200_OK)
 def get_field(field_id: int):
     with session:
         stmt = select(FootballField).where(FootballField.id == field_id)
-        return session.scalar(stmt).json()
+        field = session.scalar(stmt)
+        if not field:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Field not found",
+            )
+        return field.json()
 
 
 @router.delete(
@@ -123,6 +131,8 @@ def delete_field(
 
         session.delete(field)
         session.commit()
+
+        return {"message": "Field deleted successfully"}
 
 
 @router.get("/", status_code=status.HTTP_200_OK)

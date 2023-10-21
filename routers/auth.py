@@ -196,6 +196,19 @@ def is_already_logged_in(request: Request) -> bool:
     return False
 
 
+def is_admin(user: User) -> bool:
+    """
+    Check if the user is an admin user.
+
+    Args:
+        user (User): The user to check.
+
+    Returns:
+        bool: True if the user is an admin user, False otherwise.
+    """
+    return user.username in os.environ["ADMINS"].split(",")
+
+
 def get_admin_user(request: Request) -> User:
     """
     Returns the authenticated user if they are an admin user,
@@ -212,7 +225,7 @@ def get_admin_user(request: Request) -> User:
     """
     user = get_authenticated_user(request)
 
-    if user.username not in os.environ["ADMINS"].split(","):
+    if not is_admin(user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
 
     return user

@@ -38,7 +38,7 @@ def get_profile(owner: Owner = Depends(get_authenticated_owner)):
 def get_owners():
     with session:
         stmt = select(Owner)
-        return session.scalar(stmt)
+        return [owner.json() for owner in session.scalars(stmt)]
 
 
 @router.post(
@@ -75,7 +75,7 @@ def get_owner(owner_id: int):
         if not owner:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
-        return session.scalar(stmt)
+        return owner.json()
 
 
 @router.delete(
@@ -93,6 +93,8 @@ def delete_owner(owner_id: int):
 
         session.delete(owner)
         session.commit()
+
+        return {"message": "Owner deleted successfully"}
 
 
 @router.post("/login", status_code=status.HTTP_200_OK)
@@ -123,6 +125,8 @@ def update_profile(
     with session:
         for key, value in dict(vars(credentials).items()).items():
             if value:
+                if key == "username":
+                    continue
                 if key == "password":
                     value = Owner.hash_password(value)
                 setattr(owner, key, value)
@@ -131,7 +135,7 @@ def update_profile(
         session.commit()
 
         return {
-            "message": "User updated successfully",
+            "message": "Profile updated successfully",
             "user": owner.json(),
         }
 

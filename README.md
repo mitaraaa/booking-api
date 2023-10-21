@@ -27,14 +27,11 @@ uvicorn main:app --reload
 
 ## Tests
 
-```sh
-Name                  Stmts   Miss Branch BrPart  Cover
--------------------------------------------------------
-routers\auth.py          79      5     33      7    89%
-routers\bookings.py     108     71     56      0    32%
-routers\fields.py        73     32     44      0    50%
-routers\owners.py        72     26     36      1    58%
-routers\users.py         60      2     32      2    96%
--------------------------------------------------------
-TOTAL                   392    136    201     10    61%
-```
+| Name                | Stmts | Miss | Branch | BrPart | Cover |
+| ------------------- | ----- | ---- | ------ | ------ | ----- |
+| routers\auth.py     | 81    | 4    | 33     | 6      | 91%   |
+| routers\bookings.py | 123   | 9    | 74     | 8      | 91%   |
+| routers\fields.py   | 78    | 4    | 46     | 2      | 95%   |
+| routers\owners.py   | 75    | 4    | 40     | 4      | 93%   |
+| routers\users.py    | 60    | 2    | 32     | 2      | 96%   |
+| TOTAL               | 417   | 23   | 225    | 22     | 93%   |

@@ -17,7 +17,7 @@ class FootballField(SQLModel, table=True):
     surface_type: Optional[str]
 
     width: Meters
-    height: Meters
+    length: Meters
 
     start_time: time
     end_time: time
