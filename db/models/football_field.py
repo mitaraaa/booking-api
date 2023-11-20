@@ -16,8 +16,13 @@ class FootballField(SQLModel, table=True):
     location: str
     surface_type: Optional[str]
 
+    about: Optional[str]
+    image: Optional[str]
+
     width: Meters
     length: Meters
+
+    price: float
 
     start_time: time
     end_time: time

@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -41,12 +41,26 @@ def overlap(booking: Booking) -> bool:
 
         for existing_booking in existing_bookings:
             if (
-                existing_booking.booking_date
-                <= booking.booking_date
-                <= existing_booking.booked_until
-                or existing_booking.booking_date
-                <= booking.booked_until
-                <= existing_booking.booked_until
+                existing_booking.booking_date == booking.booking_date
+                or existing_booking.booked_until == booking.booked_until
+            ):
+                return True
+
+            if (
+                existing_booking.booking_date < booking.booking_date
+                and existing_booking.booked_until > booking.booked_until
+            ):
+                return True
+
+            if (
+                existing_booking.booked_until > booking.booking_date
+                and existing_booking.booked_until < booking.booked_until
+            ):
+                return True
+
+            if (
+                existing_booking.booking_date < booking.booked_until
+                and existing_booking.booking_date > booking.booking_date
             ):
                 return True
 
@@ -78,6 +92,12 @@ def create_booking(
                     detail="Bookng overlaps with another booking",
                 )
 
+            booking.total_price = (
+                field.price
+                * (booking.booked_until - booking.booking_date).seconds
+                / 3600
+            )
+
             session.add(booking)
             session.commit()
 
@@ -103,35 +123,6 @@ def get_user_bookings(user: User = Depends(get_authenticated_user)):
     with session:
         stmt = select(Booking).where(Booking.user_id == user.id)
         return [booking.json() for booking in session.scalars(stmt)]
-
-
-@router.get(
-    "/field/{field_id}/availability/{target_date}",
-    status_code=status.HTTP_200_OK,
-)
-def get_field_availability(field_id: int, target_date: str):
-    with session:
-        stmt = select(FootballField).where(FootballField.id == field_id)
-        field: FootballField = session.scalar(stmt)
-
-        if not field:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Field not found",
-            )
-
-        stmt = select(Booking).where(Booking.field_id == field_id)
-        bookings: list[Booking] = session.scalars(stmt)
-
-        return [
-            {
-                "from": booking.booking_date.time(),
-                "to": booking.booked_until.time(),
-            }
-            for booking in bookings
-            if booking.booking_date.date() == date.fromisoformat(target_date)
-            and booking.status != BookingStatus.canceled
-        ]
 
 
 @router.get("/field/{field_id}", status_code=status.HTTP_200_OK)

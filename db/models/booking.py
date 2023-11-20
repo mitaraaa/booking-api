@@ -21,6 +21,8 @@ class Booking(SQLModel, table=True):
     booking_date: datetime
     booked_until: datetime
 
+    total_price: float
+
     status: BookingStatus = Field(default=BookingStatus.pending.value)
 
     def json(self) -> dict:

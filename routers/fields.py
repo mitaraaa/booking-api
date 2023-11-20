@@ -1,11 +1,12 @@
-from datetime import time
+from datetime import date, time
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
-from db import FootballField, Owner, session
+from db import Booking, FootballField, Owner, session
+from db.models.booking import BookingStatus
 from routers.auth import get_authenticated_owner
 
 router = APIRouter(prefix="/fields")
@@ -18,8 +19,13 @@ class FieldData(BaseModel):
     location: str | None
     surface_type: str | None
 
+    about: str | None
+    image: str | None
+
     width: float | None
     length: float | None
+
+    price: float | None
 
     start_time: time | None
     end_time: time | None
@@ -104,6 +110,34 @@ def get_field(field_id: int):
                 detail="Field not found",
             )
         return field.json()
+
+
+@router.get(
+    "/{field_id}/bookings/{target_date}", status_code=status.HTTP_200_OK
+)
+def get_field_bookings(field_id: int, target_date: str):
+    with session:
+        stmt = select(FootballField).where(FootballField.id == field_id)
+        field: FootballField = session.scalar(stmt)
+
+        if not field:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Field not found",
+            )
+
+        stmt = select(Booking).where(Booking.field_id == field_id)
+        bookings: list[Booking] = session.scalars(stmt)
+
+        return [
+            {
+                "from": booking.booking_date.time(),
+                "to": booking.booked_until.time(),
+            }
+            for booking in bookings
+            if booking.booking_date.date() == date.fromisoformat(target_date)
+            and booking.status != BookingStatus.canceled
+        ]
 
 
 @router.delete(
