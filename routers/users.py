@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
@@ -30,6 +30,53 @@ class UserCredentials(BaseModel):
     username: str | None
     name: str | None
     password: str | None
+
+
+class SignupCredentials(UserCredentials):
+    @validator("name")
+    def validate_name(cls, name: str):
+        if not name:
+            raise ValueError("Name cannot be empty")
+
+        return name
+
+    @validator("username")
+    def validate_username(cls, username: str):
+        allowed_characters = ["_", "."]
+
+        if not username:
+            raise ValueError("Username cannot be empty")
+
+        if len(username) < 2:
+            raise ValueError("Username must be at least 3 characters long")
+
+        if username.isnumeric():
+            raise ValueError("Username cannot be numeric")
+
+        if not username.isalnum():
+            raise ValueError("Username must be alphanumeric")
+
+        if any(
+            x not in allowed_characters for x in username if not x.isalnum()
+        ):
+            raise ValueError(
+                "Username must only contain alphanumeric characters, underscores, and periods"
+            )
+
+        return username
+
+    @validator("password")
+    def validate_password(cls, password: str):
+        if not password:
+            raise ValueError("Password cannot be empty")
+
+        if len(password) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+
+        if not password.isalnum():
+            raise ValueError("Password must be alphanumeric")
+
+        return password
 
 
 @router.get("/profile", status_code=status.HTTP_200_OK)
@@ -85,7 +132,7 @@ def get_user(user_id: int):
 
 
 @router.post("/signup", status_code=status.HTTP_201_CREATED)
-def sign_up(credentials: UserCredentials):
+def sign_up(credentials: SignupCredentials):
     """
     Creates a new user in the database.
 
@@ -104,14 +151,32 @@ def sign_up(credentials: UserCredentials):
         try:
             credentials.password = User.hash_password(credentials.password)
             user = User(**(dict(vars(credentials).items())))
-            user.hash_password(credentials.password)
+
             session.add(user)
             session.commit()
 
-            return {"message": "User created successfully"}
+            session_id = create_session(user.id)
+            response = JSONResponse(
+                status_code=status.HTTP_201_CREATED,
+                content={
+                    "message": "User created successfully",
+                },
+            )
+
+            response.set_cookie(
+                key="session_id",
+                value=session_id,
+                samesite="none",
+                secure=True,
+                httponly=False,
+                expires=60 * 60 * 24 * 7,
+            )
+
+            return response
         except IntegrityError:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Username already exists",
             )
 
 
@@ -135,12 +200,20 @@ def login(request: Request, user: User = Depends(authenticate_user)):
 
     session_id = create_session(user.id)
     response = JSONResponse(
+        status_code=status.HTTP_200_OK,
         content={
             "message": "User logged in successfully",
-            "session_id": session_id,
-        }
+        },
     )
-    response.set_cookie(key="session_id", value=session_id)
+
+    response.set_cookie(
+        key="session_id",
+        value=session_id,
+        samesite="none",
+        secure=True,
+        httponly=False,
+        expires=60 * 60 * 24 * 7,
+    )
 
     return response
 

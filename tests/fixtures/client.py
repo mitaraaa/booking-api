@@ -72,6 +72,7 @@ def dummy_field():
             owner_id=1,
             location="Astana",
             surface_type="grass",
+            price=2600,
             width=68,
             length=105,
             start_time=time(10, 0, 0),

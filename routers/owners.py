@@ -2,7 +2,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
@@ -29,12 +29,58 @@ class OwnerCredentials(BaseModel):
     instagram: Optional[str]
 
 
+class SignupCredentials(OwnerCredentials):
+    @validator("name")
+    def validate_name(cls, name: str):
+        if not name:
+            raise ValueError("Name cannot be empty")
+
+        return name
+
+    def validate_username(cls, username: str):
+        allowed_characters = ["_", "."]
+
+        if not username:
+            raise ValueError("Username cannot be empty")
+
+        if len(username) < 2:
+            raise ValueError("Username must be at least 3 characters long")
+
+        if username.isnumeric():
+            raise ValueError("Username cannot be numeric")
+
+        if not username.isalnum():
+            raise ValueError("Username must be alphanumeric")
+
+        if any(
+            x not in allowed_characters for x in username if not x.isalnum()
+        ):
+            raise ValueError(
+                "Username must only contain alphanumeric characters, underscores, and periods"
+            )
+
+        return username
+
+    @validator("password")
+    def validate_password(cls, password: str):
+        if not password:
+            raise ValueError("Password cannot be empty")
+
+        if len(password) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+
+        if not password.isalnum():
+            raise ValueError("Password must be alphanumeric")
+
+        return password
+
+
 @router.get("/profile", status_code=status.HTTP_200_OK)
 def get_profile(owner: Owner = Depends(get_authenticated_owner)):
     return owner.json()
 
 
-@router.get("/", dependencies=[Depends(get_admin_user)])
+@router.get("/")
 def get_owners():
     with session:
         stmt = select(Owner)
@@ -46,13 +92,13 @@ def get_owners():
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(get_admin_user)],
 )
-def create_owner(credentials: OwnerCredentials):
+def create_owner(credentials: SignupCredentials):
     with session:
         try:
             credentials.password = Owner.hash_password(credentials.password)
             owner = Owner(**(dict(vars(credentials).items())))
-            session.add(owner)
 
+            session.add(owner)
             session.commit()
         except IntegrityError:
             raise HTTPException(
@@ -65,7 +111,6 @@ def create_owner(credentials: OwnerCredentials):
 @router.get(
     "/{owner_id}",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(get_admin_user)],
 )
 def get_owner(owner_id: int):
     with session:
@@ -112,7 +157,15 @@ def login(request: Request, owner: Owner = Depends(authenticate_owner)):
             "session_id": session_id,
         },
     )
-    response.set_cookie(key="session_id", value=session_id)
+
+    response.set_cookie(
+        key="session_id",
+        value=session_id,
+        samesite="none",
+        secure=True,
+        httponly=True,
+        expires=60 * 60 * 24 * 7,
+    )
 
     return response
 
